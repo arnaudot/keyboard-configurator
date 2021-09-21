@@ -11,6 +11,7 @@ members = [ "tools", "ffi", "backend", "widgets" ]
 [dependencies]
 cascade = "1"
 cairo-rs = "0.14.0"
+clap = "2"
 futures = "0.3.13"
 gdk = "0.14.0"
 gio = "0.14.0"
@@ -22,6 +23,7 @@ pango = "0.14.0"
 pangocairo = "0.14.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+structopt = "0.3"
 log = "0.4.0"
 env_logger = "0.8.3"
 backend = { package = "system76-keyboard-configurator-backend", path = "backend" }

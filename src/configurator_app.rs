@@ -1,16 +1,26 @@
 use cascade::cascade;
+use gio::subclass::ArgumentList;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
-use std::cell::Cell;
+use structopt::StructOpt;
 
 use crate::{about_dialog, fl, MainWindow, Page};
 use backend::DerefCell;
 
+#[derive(Debug, StructOpt)]
+#[structopt()]
+struct Opt {
+    #[structopt(short = "k", long, use_delimiter = true)]
+    fake_keyboard: Vec<String>,
+    #[structopt(long)]
+    debug_layers: bool,
+    #[structopt(long)]
+    launch_test: bool,
+}
+
 #[derive(Default)]
 pub struct ConfiguratorAppInner {
-    phony_board_names: DerefCell<Vec<String>>,
-    debug_layers: Cell<bool>,
-    launch_test: Cell<bool>,
+    opt: DerefCell<Opt>,
 }
 
 #[glib::object_subclass]
@@ -23,53 +33,36 @@ impl ObjectSubclass for ConfiguratorAppInner {
 impl ObjectImpl for ConfiguratorAppInner {
     fn constructed(&self, app: &ConfiguratorApp) {
         app.set_application_id(Some("com.system76.keyboardconfigurator"));
-
         self.parent_constructed(app);
-
-        app.add_main_option(
-            "fake-keyboard",
-            glib::Char::from(b'k'),
-            glib::OptionFlags::NONE,
-            glib::OptionArg::String,
-            "",
-            None,
-        );
-        app.add_main_option(
-            "debug-layers",
-            glib::Char::from(b'\0'),
-            glib::OptionFlags::NONE,
-            glib::OptionArg::None,
-            "",
-            None,
-        );
-        app.add_main_option(
-            "launch-test",
-            glib::Char::from(b'\0'),
-            glib::OptionFlags::NONE,
-            glib::OptionArg::None,
-            "",
-            None,
-        );
     }
 }
 
 impl ApplicationImpl for ConfiguratorAppInner {
-    fn handle_local_options(&self, _app: &ConfiguratorApp, opts: &glib::VariantDict) -> i32 {
-        fn lookup<T: glib::FromVariant>(opts: &glib::VariantDict, key: &str) -> Option<T> {
-            opts.lookup_value(key, None)?.get()
+    fn local_command_line(&self, app: &ConfiguratorApp, args: &mut ArgumentList) -> Option<i32> {
+        match Opt::from_iter_safe(args.iter()) {
+            Ok(mut opt) => {
+                if opt.fake_keyboard == ["all".to_string()] {
+                    opt.fake_keyboard = backend::layouts().iter().map(|s| s.to_string()).collect();
+                }
+
+                self.opt.set(opt);
+
+                app.register(None::<&gio::Cancellable>).unwrap();
+                app.activate();
+            }
+            Err(err) => {
+                if err.kind == clap::ErrorKind::HelpDisplayed {
+                    eprintln!("{}", err.message);
+                } else if err.kind == clap::ErrorKind::VersionDisplayed {
+                    eprintln!("{}", err.message);
+                } else {
+                    eprintln!("Error parsing arguments: {}", err.message);
+                    return Some(1);
+                }
+            }
         }
 
-        let board_names = match lookup::<String>(opts, "fake-keyboard").as_deref() {
-            Some("all") => backend::layouts().iter().map(|s| s.to_string()).collect(),
-            Some(value) => value.split(',').map(str::to_string).collect(),
-            None => vec![],
-        };
-
-        self.phony_board_names.set(board_names);
-        self.debug_layers.set(opts.contains("debug-layers"));
-        self.launch_test.set(opts.contains("launch-test"));
-
-        -1
+        Some(0)
     }
 
     fn startup(&self, app: &ConfiguratorApp) {
@@ -118,15 +111,15 @@ impl ConfiguratorApp {
     }
 
     pub fn phony_board_names(&self) -> &[String] {
-        &self.inner().phony_board_names
+        &self.inner().opt.fake_keyboard
     }
 
     pub fn debug_layers(&self) -> bool {
-        self.inner().debug_layers.get()
+        self.inner().opt.debug_layers
     }
 
     pub fn launch_test(&self) -> bool {
-        self.inner().launch_test.get()
+        self.inner().opt.launch_test
     }
 }
 
