@@ -1,10 +1,11 @@
 use cascade::cascade;
 use gio::subclass::ArgumentList;
+use glib::clone;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use structopt::StructOpt;
 
-use crate::{about_dialog, fl, MainWindow, Page};
+use crate::{about_dialog, cli, fl, MainWindow, Page};
 use backend::DerefCell;
 
 #[derive(Debug, StructOpt)]
@@ -16,6 +17,8 @@ struct Opt {
     debug_layers: bool,
     #[structopt(long)]
     launch_test: bool,
+    #[structopt(long)]
+    list_boards: bool,
 }
 
 #[derive(Default)]
@@ -47,8 +50,20 @@ impl ApplicationImpl for ConfiguratorAppInner {
 
                 self.opt.set(opt);
 
-                app.register(None::<&gio::Cancellable>).unwrap();
-                app.activate();
+                let fut = if self.opt.list_boards {
+                    cli::list_boards()
+                } else {
+                    app.register(None::<&gio::Cancellable>).unwrap();
+                    app.activate();
+                    return Some(0);
+                };
+
+                let main_loop = glib::MainLoop::new(None, false);
+                glib::MainContext::default().spawn_local(clone!(@strong main_loop => async move {
+                    fut.await;
+                    main_loop.quit();
+                }));
+                main_loop.run();
             }
             Err(err) => {
                 if err.kind == clap::ErrorKind::HelpDisplayed {
