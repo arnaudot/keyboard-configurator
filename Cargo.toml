@@ -11,7 +11,7 @@ members = [ "tools", "ffi", "backend", "widgets" ]
 [dependencies]
 cascade = "1"
 cairo-rs = "0.14.0"
-clap = "2"
+clap = { version = "3.0.0-rc.7", features = ["derive"] }
 futures = "0.3.13"
 gdk = "0.14.0"
 gio = "0.14.0"

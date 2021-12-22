@@ -1,24 +1,36 @@
 use cascade::cascade;
+use clap::Parser;
 use gio::subclass::ArgumentList;
 use glib::clone;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
-use structopt::StructOpt;
 
 use crate::{about_dialog, cli, fl, MainWindow, Page};
 use backend::DerefCell;
 
-#[derive(Debug, StructOpt)]
-#[structopt()]
+#[derive(Debug, Parser)]
+#[clap()]
 struct Opt {
-    #[structopt(short = "k", long, use_delimiter = true)]
-    fake_keyboard: Vec<String>,
-    #[structopt(long)]
-    debug_layers: bool,
-    #[structopt(long)]
-    launch_test: bool,
-    #[structopt(long)]
+    #[clap(long, group = "verb", help = "Print list of detected keyboards")]
     list_boards: bool,
+    #[clap(long, group = "verb", help = "")]
+    save: bool,
+    #[clap(
+        short = 'k',
+        long,
+        use_delimiter = true,
+        help_heading = "DEBUGGING OPTIONS",
+        help = "Keyboards to emulate, or 'all'"
+    )]
+    fake_keyboard: Vec<String>,
+    #[clap(long, help_heading = "DEBUGGING OPTIONS", help = "Show debug layers")]
+    debug_layers: bool,
+    #[clap(
+        long,
+        help_heading = "DEBUGGING OPTIONS",
+        help = "Show Launch testing section"
+    )]
+    launch_test: bool,
 }
 
 #[derive(Default)]
@@ -66,12 +78,12 @@ impl ApplicationImpl for ConfiguratorAppInner {
                 main_loop.run();
             }
             Err(err) => {
-                if err.kind == clap::ErrorKind::HelpDisplayed {
-                    eprintln!("{}", err.message);
-                } else if err.kind == clap::ErrorKind::VersionDisplayed {
-                    eprintln!("{}", err.message);
+                if err.kind == clap::ErrorKind::DisplayHelp {
+                    eprintln!("{}", err);
+                } else if err.kind == clap::ErrorKind::DisplayVersion {
+                    eprintln!("{}", err);
                 } else {
-                    eprintln!("Error parsing arguments: {}", err.message);
+                    eprintln!("Error parsing arguments: {}", err);
                     return Some(1);
                 }
             }
